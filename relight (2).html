@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relight the Domino Sign</title>
+<style>
+  :root {
+    --bg: #0d1424; --panel: #151f35; --panel2: #1b2742; --line: #2a3a5c;
+    --text: #e6ecf5; --muted: #9fb0c9; --accent: #DAE1E8; --navy: #405C91;
+    --neon: #ff3b2f; --good: #6fdc8c; --warn: #ffcf5a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 12px; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 6px; padding: 8px 14px;
+    background: var(--accent); color: #143d50; font-weight: 700; }
+  button:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 600; }
+  input[type=number] { font: inherit; width: 110px; padding: 7px 8px; border-radius: 6px;
+    border: 1px solid var(--line); background: #0b1220; color: var(--text); }
+  sup { font-size: .72em; }
+
+  /* ---- sign ---- */
+  .sign { position: relative; background: radial-gradient(ellipse at 50% 120%, #1a2440 0%, #0a0f1c 70%);
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px 10px 10px; text-align: center; overflow: hidden; }
+  .letters { font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif; font-weight: 900;
+    font-size: clamp(26px, 6.2vw, 58px); letter-spacing: .06em; line-height: 1; user-select: none; }
+  .letters span { color: transparent; -webkit-text-stroke: 1.5px #4a3438; transition: color .4s, text-shadow .6s; display: inline-block; }
+  .letters span.lit { color: #ff5a4a; -webkit-text-stroke: 1.5px #ffd2c8;
+    text-shadow: 0 0 6px #ff3b2f, 0 0 16px #ff3b2f, 0 0 34px #e0201a; animation: buzz 3.2s infinite; }
+  .letters span.flick { animation: flick .9s 1; }
+  .letters .gap { width: .5em; }
+  .letters span.dying { animation: dying 2.8s steps(1, end) infinite; }
+  .letters span.dying:nth-child(2) { animation-delay: .45s; animation-duration: 3.3s; }
+  .letters span.dying:nth-child(3) { animation-delay: 1.1s; animation-duration: 2.4s; }
+  @keyframes dying {
+    0%, 9%, 33%, 55%, 61%, 84% { color: #ff5a4a; -webkit-text-stroke: 1.5px #ffd2c8; text-shadow: 0 0 6px #ff3b2f, 0 0 16px #ff3b2f, 0 0 34px #e0201a; }
+    6%, 12%, 52%, 58%, 66%, 100% { color: #3a1712; -webkit-text-stroke: 1.5px #6a3a36; text-shadow: none; }
+  }
+  @keyframes buzz { 0%, 93%, 100% { opacity: 1 } 95% { opacity: .82 } 97% { opacity: .96 } }
+  @keyframes flick { 0% { opacity: 0 } 15% { opacity: 1 } 25% { opacity: .2 } 40% { opacity: 1 } 55% { opacity: .5 } 100% { opacity: 1 } }
+  .progress { display: flex; gap: 6px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.on { border-color: var(--accent); color: var(--text); }
+  .pill.done { background: #20402c; border-color: #3d7a52; color: var(--good); }
+
+  /* ---- main ---- */
+  .main { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .atom { flex: 1.25 1 330px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; min-width: 300px; align-self: flex-start; }
+  .side { flex: 1 1 290px; display: flex; flex-direction: column; gap: 12px; min-width: 280px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #8FA3B5; margin: 0 0 6px; }
+  .card h3 { font-size: 18px; margin: 0 0 6px; }
+  .card p { margin: 0 0 8px; }
+  .msg { min-height: 64px; background: var(--panel2); border-left: 3px solid var(--navy); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+  .msg.good { border-left-color: var(--good); }
+  .msg.warn { border-left-color: var(--warn); }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .swatch { width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--line); flex: none; }
+  .readout { font-size: 14px; color: var(--muted); }
+  .readout b { color: var(--text); }
+  input[type=range] { width: 100%; accent-color: #8FA3B5; }
+  .hint { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+  .hint b { color: var(--text); }
+  .stats { font-size: 12.5px; color: var(--muted); }
+
+  svg text { font-family: inherit; }
+  .lvl-hit { cursor: default; }
+  .lvl-hit.can { cursor: pointer; }
+
+  /* ---- spectrum ---- */
+  .spec { margin-top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .spec-top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+  .spec-row { display: flex; gap: 8px; align-items: stretch; margin-top: 6px; }
+  .box { flex: 0 0 120px; background: #0b1220; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12px; color: var(--muted); overflow: hidden; }
+  .box b { display: block; color: var(--text); font-size: 11px; letter-spacing: .06em; }
+  .chip { display: inline-block; margin: 2px 3px 0 0; padding: 0 5px; border-radius: 4px; background: #232f4b; color: var(--text); font-size: 11.5px; }
+  .strip { position: relative; flex: 1; height: 58px; border-radius: 6px; background: #05070d; overflow: hidden; border: 1px solid var(--line); }
+  .strip .rain { position: absolute; inset: 0; opacity: .16; }
+  .strip .ln { position: absolute; top: 0; bottom: 14px; width: 3px; margin-left: -1.5px; box-shadow: 0 0 8px currentColor; }
+  .strip .tk { position: absolute; bottom: 0; font-size: 10px; color: #7d8aa3; transform: translateX(-50%); }
+  .strip .lab { position: absolute; top: 2px; font-size: 10px; transform: translateX(-50%); color: #fff; text-shadow: 0 0 3px #000; }
+
+  /* ---- mission 3 ---- */
+  .mini { position: relative; height: 26px; background: #05070d; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: 1; }
+  .mini .ln { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; }
+  .gas { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .gas button { flex: 0 0 96px; padding: 5px 6px; font-size: 13px; }
+  .gas .nm { flex: 0 0 96px; font-size: 13px; color: var(--muted); }
+  .scale { display: flex; justify-content: space-between; font-size: 10.5px; color: #7d8aa3; margin-left: 104px; }
+
+  /* ---- compact (teaser) mode: shown when the frame is short ---- */
+  #teaserBar { display: none; text-align: center; margin-top: 8px; }
+  body.teaser .wrap { padding: 6px 8px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+  body.teaser .letters { font-size: clamp(28px, 8.4vw, 60px); }
+  body.teaser .sign { cursor: pointer; padding: 10px 8px 8px; }
+  body.teaser .progress, body.teaser .intro, body.teaser .main, body.teaser .spec, body.teaser #fsBar { display: none !important; }
+  body.teaser #teaserBar { display: block; }
+  .tline { font-size: 15px; margin: 0 0 8px; }
+  .play { font-size: 18px; padding: 10px 22px; border-radius: 999px; background: #ff3b2f; color: #fff;
+    box-shadow: 0 0 0 3px rgba(255,210,200,.8), 0 0 24px rgba(255,59,47,.6); }
+  .tsub { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  .tsub a { color: var(--accent); }
+  #fsBar { display: none; justify-content: flex-end; margin-bottom: 6px; }
+  :fullscreen #fsBar, body.fs #fsBar { display: flex; }
+  :fullscreen, :fullscreen body { background: var(--bg); overflow: auto; }
+
+  /* ---- intro ---- */
+  .intro { margin-top: 12px; }
+  .intro .card { max-width: 760px; margin: 0 auto; text-align: center; }
+  .intro h3 { font-size: 24px; }
+  .how { display: flex; gap: 10px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+  .how .step { flex: 1 1 200px; max-width: 230px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 8px 10px; }
+  .how .num { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #143d50; font-weight: 800; font-size: 13px; line-height: 22px; margin-right: 6px; }
+  .how .lbl { font-weight: 700; font-size: 14.5px; }
+  .intro .row { justify-content: center; }
+  .hidden { display: none !important; }
+  .e-in { width: 90px; }
+  .lineq { display: flex; align-items: center; gap: 8px; margin: 7px 0; flex-wrap: wrap; }
+  .lineq .sw { width: 14px; height: 26px; border-radius: 3px; }
+  .ok { color: var(--good); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="fsBar"><button class="ghost" id="exitFs">Exit full screen ✕</button></div>
+
+  <div class="sign" aria-label="Sign" id="signBox">
+    <div class="letters" id="letters"></div>
+    <div class="progress" id="progress"></div>
+  </div>
+
+  <div id="teaserBar">
+    <p class="tline" id="tline">The sign’s neon is failing. <b>Can you relight it?</b></p>
+    <button class="play" id="playBtn">▶ Play full screen</button>
+    <div class="tsub">4 missions · about 15 minutes · calculator and scratch paper · <a href="#" id="newTab">or open in a new tab</a></div>
+  </div>
+
+  <div class="intro" id="intro">
+    <div class="card">
+      <h3>Relight the Domino Sign</h3>
+      <p>The sign’s neon is failing. Make atoms give off light to relight it, one mission at a time.</p>
+      <div class="how">
+        <div class="step"><svg viewBox="0 0 200 80" width="100%" height="80" aria-hidden="true">
+          <rect x="34" y="20" width="96" height="38" rx="6" fill="#0b1220" stroke="#2a3a5c"/><text x="82" y="45" fill="#e6ecf5" font-size="17" text-anchor="middle">486 nm</text>
+          <rect x="140" y="20" width="30" height="38" rx="5" fill="#00b4ff"/></svg>
+          <div><span class="num">1</span><span class="lbl">Pick a wavelength</span></div></div>
+        <div class="step"><svg viewBox="0 0 200 80" width="100%" height="80" aria-hidden="true">
+          <path d="M18 40 L22 33 L26 47 L30 33 L34 47 L38 33 L42 47 L46 33 L50 47 L54 33 L58 47 L62 33 L66 47 L70 40" stroke="#00b4ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M76 40 L96 40" stroke="#00b4ff" stroke-width="3"/><path d="M94 33 L104 40 L94 47 Z" fill="#00b4ff"/>
+          <line x1="112" y1="58" x2="190" y2="58" stroke="#c8d3e6" stroke-width="2"/><line x1="112" y1="22" x2="190" y2="22" stroke="#c8d3e6" stroke-width="2"/>
+          <circle cx="140" cy="58" r="11" fill="#4aa3ff" opacity=".35"/><circle cx="140" cy="58" r="5" fill="#d9efff"/>
+          <path d="M160 52 L160 30" stroke="#6fdc8c" stroke-width="2.5"/><path d="M154 34 L160 24 L166 34 Z" fill="#6fdc8c"/></svg>
+          <div><span class="num">2</span><span class="lbl">Fire it: the electron jumps up</span></div></div>
+        <div class="step"><svg viewBox="0 0 200 80" width="100%" height="80" aria-hidden="true">
+          <line x1="20" y1="22" x2="100" y2="22" stroke="#ffcf5a" stroke-width="2"/><line x1="20" y1="58" x2="100" y2="58" stroke="#ffcf5a" stroke-width="3"/>
+          <circle cx="50" cy="22" r="5" fill="#d9efff" opacity=".45"/><circle cx="50" cy="58" r="11" fill="#4aa3ff" opacity=".35"/><circle cx="50" cy="58" r="5" fill="#d9efff"/>
+          <path d="M50 30 L50 46" stroke="#9fb0c9" stroke-width="2" stroke-dasharray="3 3"/>
+          <path d="M108 40 L112 33 L116 47 L120 33 L124 47 L128 33 L132 47 L136 33 L140 47 L144 40" stroke="#ff3b2f" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <rect x="154" y="18" width="6" height="44" fill="#ff3b2f"/><rect x="168" y="18" width="6" height="44" fill="#00b4ff"/><rect x="182" y="18" width="6" height="44" fill="#7a3cff"/></svg>
+          <div><span class="num">3</span><span class="lbl">Click a lower level: light comes out</span></div></div>
+      </div>
+      <p class="stats">4 missions · about 15 minutes · calculator and scratch paper · h = 6.626 × 10<sup>−34</sup> J·s · c = 3.00 × 10<sup>8</sup> m/s</p>
+      <div class="row" style="margin:10px 0"><label for="who"><b>Name</b></label><input id="who" type="text" maxlength="40" placeholder="First and last" style="font:inherit;width:240px;padding:7px 8px;border-radius:6px;border:1px solid var(--line);background:#0b1220;color:var(--text);"><button id="start">Start</button></div>
+      <p class="stats" style="margin:0"><b style="color:#ffcf5a">Tier 2:</b> keep a handwritten flight log as you play. Progress doesn’t save.</p>
+    </div>
+  </div>
+
+  <div class="main hidden" id="mainArea">
+    <div class="atom">
+      <svg id="svg" viewBox="0 0 430 395" width="100%" role="img" aria-label="Hydrogen atom energy levels">
+        <defs>
+          <radialGradient id="eglow"><stop offset="0" stop-color="#bfe3ff"/><stop offset=".55" stop-color="#4aa3ff"/><stop offset="1" stop-color="#4aa3ff" stop-opacity="0"/></radialGradient>
+        </defs>
+        <text x="14" y="22" fill="#8FA3B5" font-size="13" letter-spacing="1.2">HYDROGEN ATOM · ENERGY LEVELS</text>
+        <text x="14" y="38" fill="#6f7f99" font-size="11">spacing not to scale</text>
+        <g id="levels"></g>
+        <g id="photon"></g>
+        <g id="electron"><circle r="16" fill="url(#eglow)"/><circle r="6" fill="#d9efff"/></g>
+      </svg>
+    </div>
+
+    <div class="side">
+      <div class="card" id="missionCard"></div>
+      <div class="card" id="controls">
+        <h2>Photon gun · pick a wavelength, then fire</h2>
+        <div class="row">
+          <div class="swatch" id="swatch"></div>
+          <label for="lam">Wavelength</label>
+          <input type="number" id="lam" min="50" max="5000" step="0.1" value="500">
+          <span>nm</span>
+          <button id="fire">Fire photon</button>
+        </div>
+        <input type="range" id="slider" min="80" max="800" step="0.1" value="500" aria-label="Wavelength slider">
+        <div class="readout" id="readout"></div>
+        <div class="msg" id="msg">Pick a wavelength, then fire.</div>
+        <div class="row" style="margin-top:8px; justify-content: space-between;">
+          <span class="stats" id="stats"></span>
+          <span><button class="ghost" id="hintBtn">Hint</button> <button class="ghost" id="resetAtom">Reset atom</button></span>
+        </div>
+        <div class="hint hidden" id="hint"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spec hidden" id="specArea">
+    <div class="spec-top">
+      <span style="font-size:13px; letter-spacing:.08em; color:#8FA3B5;">LIGHT YOUR ATOM HAS GIVEN OFF</span>
+    </div>
+    <div class="spec-row">
+      <div class="box" id="uvBox"><b>ULTRAVIOLET &lt; 380 nm</b></div>
+      <div class="strip" id="strip"><div class="rain" id="rain"></div></div>
+      <div class="box" id="irBox"><b>INFRARED &gt; 750 nm</b></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- physics (course constants) ----------
+  const h = 6.626e-34, c = 3.00e8, HC = h * c, E1 = -2.180e-18;
+  const En = n => E1 / (n * n);
+  const NMAX = 6, TOL = 0.005;
+  const lamOf = E => HC / E * 1e9;           // nm
+  const EOf = nm => HC / (nm * 1e-9);         // J
+
+  const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  function sci(x, sf = 3) {
+    if (x === 0) return '0';
+    const neg = x < 0; x = Math.abs(x);
+    let e = Math.floor(Math.log10(x)), m = x / Math.pow(10, e);
+    m = +m.toFixed(sf - 1); if (m >= 10) { m /= 10; e += 1; }
+    const ms = m.toFixed(sf - 1);
+    return (neg ? '−' : '') + ms + ' × 10' + String(e).split('').map(ch => SUP[ch]).join('');
+  }
+  const nmTxt = x => (x >= 1000 ? Math.round(x).toLocaleString() : x.toFixed(1)) + ' nm';
+
+  function lamColor(nm) {
+    if (nm < 380) return '#b9a6ff';
+    if (nm > 750) return '#a33a2a';
+    let r = 0, g = 0, b = 0;
+    if (nm < 440) { r = -(nm - 440) / 60; b = 1; }
+    else if (nm < 490) { g = (nm - 440) / 50; b = 1; }
+    else if (nm < 510) { g = 1; b = -(nm - 510) / 20; }
+    else if (nm < 580) { r = (nm - 510) / 70; g = 1; }
+    else if (nm < 645) { r = 1; g = -(nm - 645) / 65; }
+    else { r = 1; }
+    let f = 1;
+    if (nm < 420) f = .35 + .65 * (nm - 380) / 40; else if (nm > 700) f = .35 + .65 * (750 - nm) / 50;
+    const t = v => Math.round(255 * Math.pow(v * f, .8));
+    return `rgb(${t(r)},${t(g)},${t(b)})`;
+  }
+  function colorName(nm) {
+    if (nm < 380) return 'ultraviolet, invisible';
+    if (nm > 750) return 'infrared, invisible';
+    if (nm < 450) return 'violet'; if (nm < 495) return 'blue'; if (nm < 520) return 'cyan';
+    if (nm < 565) return 'green'; if (nm < 590) return 'yellow'; if (nm < 625) return 'orange'; return 'red';
+  }
+
+  // ---------- sign ----------
+  const WORD = 'DOMINO SUGARS';
+  const lettersEl = document.getElementById('letters');
+  const letterSpans = [];
+  for (const ch of WORD) {
+    const s = document.createElement('span');
+    if (ch === ' ') { s.className = 'gap'; s.innerHTML = '&nbsp;'; }
+    else { s.textContent = ch; letterSpans.push(s); }
+    lettersEl.appendChild(s);
+  }
+  function light(idxs) {
+    idxs.forEach((i, k) => setTimeout(() => {
+      const s = letterSpans[i]; s.classList.remove('dying'); s.classList.add('lit', 'flick');
+      setTimeout(() => s.classList.remove('flick'), 950);
+    }, k * 260));
+  }
+
+  // ---------- missions ----------
+  const MISSIONS = ['1 · Excite', '2 · Hydrogen’s colors', '3 · Name the gas', '4 · Power the tubes'];
+  const progressEl = document.getElementById('progress');
+  function drawProgress() {
+    progressEl.innerHTML = MISSIONS.map((m, i) =>
+      `<span class="pill ${i < state.mission ? 'done' : i === state.mission ? 'on' : ''}">${i < state.mission ? '✓ ' : ''}${m}</span>`).join('');
+  }
+
+  // ---------- state ----------
+  const state = { n: 1, ionized: false, busy: false, mission: 0, shots: 0, collected: new Set(), hintLevel: 0, m4: [false, false, false] };
+
+  // ---------- energy diagram ----------
+  const svg = document.getElementById('svg');
+  const NS = 'http://www.w3.org/2000/svg';
+  const X0 = 66, X1 = 262, EX = 118;
+  function yOf(n) {                         // n = 0 means "electron removed" (E = 0)
+    return { 0: 52, 1: 370, 2: 284, 3: 206, 4: 160, 5: 128, 6: 104 }[n];
+  }
+  const levelsG = document.getElementById('levels');
+  function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function drawLevels() {
+    levelsG.innerHTML = '';
+    // ionization line
+    el('line', { x1: X0, x2: X1, y1: yOf(0), y2: yOf(0), stroke: '#5b6b88', 'stroke-dasharray': '5 5' }, levelsG);
+    el('text', { x: X1 + 10, y: yOf(0) + 4, fill: '#7d8aa3', 'font-size': 12 }, levelsG).textContent = '0 J · electron gone';
+    // axis break between n=1 and n=2
+    el('text', { x: X0 - 6, y: 334, fill: '#5b6b88', 'font-size': 18, 'text-anchor': 'end' }, levelsG).textContent = '⋮';
+    for (let n = 1; n <= NMAX; n++) {
+      const y = yOf(n);
+      const canDrop = !state.ionized && !state.busy && n < state.n;
+      el('line', { x1: X0, x2: X1, y1: y, y2: y, stroke: canDrop ? '#ffcf5a' : '#c8d3e6', 'stroke-width': canDrop ? 3 : 2 }, levelsG);
+      el('text', { x: X0 - 10, y: y + 4, fill: '#e6ecf5', 'font-size': 15, 'text-anchor': 'end', 'font-weight': 700 }, levelsG).textContent = 'n = ' + n;
+      el('text', { x: X1 + 10, y: y + 5, fill: '#9fb0c9', 'font-size': 14 }, levelsG).textContent = sci(En(n), 3) + ' J';
+      const hit = el('rect', { x: X0, y: y - 9, width: X1 - X0, height: 18, fill: 'transparent', class: 'lvl-hit' + (canDrop ? ' can' : '') }, levelsG);
+      if (canDrop) {
+        hit.addEventListener('click', () => drop(n));
+        el('text', { x: X1 - 4, y: y - 6, fill: '#ffcf5a', 'font-size': 12, 'text-anchor': 'end' }, levelsG).textContent = 'click to drop here';
+      }
+    }
+  }
+  const elec = document.getElementById('electron');
+  let ey = yOf(1), ex = EX;
+  function placeElectron() { elec.setAttribute('transform', `translate(${ex},${ey})`); elec.style.opacity = state.ionized ? 0 : 1; }
+  function animate(dur, step) {
+    return new Promise(res => { const t0 = performance.now();
+      function f(t) { const k = Math.min(1, (t - t0) / dur); step(k); if (k < 1) requestAnimationFrame(f); else res(); }
+      requestAnimationFrame(f); });
+  }
+  const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+
+  const photonG = document.getElementById('photon');
+  function photonShape(nm) {
+    photonG.innerHTML = '';
+    const col = lamColor(nm), wl = Math.max(6, Math.min(26, nm / 26));
+    let d = 'M -60 0';
+    for (let x = -60; x <= 0; x += 2) d += ` L ${x} ${Math.sin(x / wl * 2 * Math.PI) * 7}`;
+    el('path', { d, stroke: col, 'stroke-width': 3, fill: 'none', 'stroke-linecap': 'round' }, photonG);
+    el('circle', { r: 4, fill: col }, photonG);
+    return col;
+  }
+  async function shootIn(nm, y, stopAt) {
+    photonShape(nm); photonG.style.opacity = 1;
+    await animate(700, k => photonG.setAttribute('transform', `translate(${-10 + (stopAt + 10) * k},${y})`));
+  }
+  async function shootOut(nm, y, from, to) {
+    photonShape(nm); photonG.style.opacity = 1;
+    await animate(800, k => photonG.setAttribute('transform', `translate(${from + (to - from) * k},${y + (440 - y) * k * k})`));
+    photonG.style.opacity = 0;
+  }
+
+  // ---------- controls ----------
+  const lamIn = document.getElementById('lam'), slider = document.getElementById('slider');
+  const swatch = document.getElementById('swatch'), readout = document.getElementById('readout');
+  const msgEl = document.getElementById('msg'), statsEl = document.getElementById('stats');
+  function sync(from) {
+    if (from === 'slider') lamIn.value = (+slider.value).toFixed(1);
+    else if (+lamIn.value >= 80 && +lamIn.value <= 800) slider.value = lamIn.value;
+    const nm = +lamIn.value;
+    if (!(nm > 0)) { readout.textContent = ''; return; }
+    swatch.style.background = lamColor(nm);
+    readout.innerHTML = `One photon carries <b>E = ${sci(EOf(nm))} J</b> · ${colorName(nm)}`;
+  }
+  slider.addEventListener('input', () => sync('slider'));
+  lamIn.addEventListener('input', () => sync('input'));
+  lamIn.addEventListener('keydown', e => { if (e.key === 'Enter') fire(); });
+  function say(html, tone) { msgEl.innerHTML = html; msgEl.className = 'msg' + (tone ? ' ' + tone : ''); }
+  function stats() { statsEl.textContent = `Photons fired: ${state.shots}`; }
+
+  async function fire() {
+    if (state.busy) return;
+    const nm = +lamIn.value;
+    if (!(nm >= 50 && nm <= 5000)) { say('Choose a wavelength between 50 and 5,000 nm.', 'warn'); return; }
+    if (state.ionized) { say('No electron left to hit. Press <b>Reset atom</b>.', 'warn'); return; }
+    state.busy = true; state.shots++; stats(); drawLevels();
+    const E = EOf(nm), n = state.n, y = yOf(n);
+    let target = 0;
+    for (let m = n + 1; m <= NMAX; m++) { const dE = En(m) - En(n); if (Math.abs(E - dE) / dE <= TOL) target = m; }
+    const ionE = -En(n);
+    await shootIn(nm, y, EX);
+    if (target) {
+      photonG.style.opacity = 0;
+      const y0 = ey, y1 = yOf(target);
+      await animate(600, k => { ey = y0 + (y1 - y0) * ease(k); placeElectron(); });
+      state.n = target;
+      say(`<b>Absorbed!</b> The electron jumped from n = ${n} to n = ${target}. Now click a lower <span style="color:#ffcf5a">yellow</span> level.`, 'good');
+      if (state.mission === 0) finishMission(0);
+    } else if (E >= ionE) {
+      photonG.style.opacity = 0;
+      const y0 = ey;
+      await animate(700, k => { ey = y0 + (yOf(0) - 40 - y0) * k; ex = EX + 200 * k; placeElectron(); elec.style.opacity = 1 - k; });
+      state.ionized = true; ex = EX;
+      say(`<b>Ionized!</b> Too much energy: the electron flew off the atom. Press <b>Reset atom</b>.`, 'warn');
+    } else {
+      await animate(600, k => photonG.setAttribute('transform', `translate(${EX + 320 * k},${y})`));
+      photonG.style.opacity = 0;
+      let extra = '';
+      if (n === 1 && nm > 380 && state.mission <= 1) extra = ' Visible light is too weak to lift it from n = 1.';
+      say(`<b>Passed through.</b> ${sci(E)} J doesn’t match any gap above n = ${n}.${extra}`);
+    }
+    state.busy = false; drawLevels();
+  }
+  document.getElementById('fire').addEventListener('click', fire);
+
+  async function drop(m) {
+    if (state.busy) return;
+    state.busy = true; drawLevels();
+    const n = state.n, dE = En(n) - En(m), nm = lamOf(dE);
+    const y0 = ey, y1 = yOf(m);
+    const p = shootOut(nm, (y0 + y1) / 2, EX, 430);
+    await animate(450, k => { ey = y0 + (y1 - y0) * ease(k); placeElectron(); });
+    await p;
+    state.n = m; record(nm, n, m);
+    say(`Fell from n = ${n} to n = ${m}: gave off <b>${nmTxt(nm)}</b> (${colorName(nm)}).`, nm >= 380 && nm <= 750 ? 'good' : '');
+    if (state.mission === 1 && m === 2 && n >= 3) {
+      state.collected.add(n);
+      if (state.collected.size === 4) finishMission(1);
+      else drawMission();
+    }
+    state.busy = false; drawLevels();
+  }
+
+  // ---------- spectrum strip ----------
+  const strip = document.getElementById('strip'), rain = document.getElementById('rain');
+  const uvBox = document.getElementById('uvBox'), irBox = document.getElementById('irBox');
+  const LMIN = 380, LMAX = 750, pct = nm => (nm - LMIN) / (LMAX - LMIN) * 100;
+  (function initStrip() {
+    const stops = []; for (let nm = LMIN; nm <= LMAX; nm += 10) stops.push(`${lamColor(nm)} ${pct(nm)}%`);
+    rain.style.background = `linear-gradient(90deg, ${stops.join(',')})`;
+    [400, 450, 500, 550, 600, 650, 700].forEach(nm => { const t = document.createElement('div'); t.className = 'tk'; t.style.left = pct(nm) + '%'; t.textContent = nm; strip.appendChild(t); });
+  })();
+  const seen = new Set();
+  function record(nm, n, m) {
+    const key = `${n}-${m}`;
+    if (nm < LMIN || nm > LMAX) {
+      if (seen.has(key)) return; seen.add(key);
+      const chip = document.createElement('span'); chip.className = 'chip'; chip.title = `n = ${n} → ${m}`;
+      chip.textContent = nmTxt(nm); (nm < LMIN ? uvBox : irBox).appendChild(chip); return;
+    }
+    if (seen.has(key)) return; seen.add(key);
+    const ln = document.createElement('div'); ln.className = 'ln'; ln.style.left = pct(nm) + '%';
+    ln.style.background = ln.style.color = lamColor(nm); strip.appendChild(ln);
+    const lab = document.createElement('div'); lab.className = 'lab'; lab.style.left = pct(nm) + '%';
+    lab.textContent = Math.round(nm); strip.appendChild(lab);
+  }
+  function clearStrip() {
+    seen.clear();
+    strip.querySelectorAll('.ln,.lab').forEach(e => e.remove());
+    uvBox.querySelectorAll('.chip').forEach(e => e.remove()); irBox.querySelectorAll('.chip').forEach(e => e.remove());
+  }
+
+  document.getElementById('resetAtom').addEventListener('click', () => {
+    if (state.busy) return;
+    state.n = 1; state.ionized = false; ey = yOf(1); ex = EX; placeElectron(); drawLevels();
+    say('Fresh atom: the electron is back in n = 1.');
+  });
+
+  // ---------- hints ----------
+  const HINTS = [
+    ['To be absorbed, a photon’s energy must <b>exactly</b> match the gap between two levels: ΔE = E<sub>upper</sub> − E<sub>lower</sub>.',
+     'Then find the wavelength that carries that energy: <b>λ = hc ÷ ΔE</b>. Convert meters to nanometers (× 10<sup>9</sup>).',
+     'Example: n = 1 to n = 2 needs ΔE = (−5.45 × 10<sup>−19</sup>) − (−2.18 × 10<sup>−18</sup>) = 1.635 × 10<sup>−18</sup> J. What λ is that?'],
+    ['Look at the strip: the drops that end at n = 1 all land in the ultraviolet box.',
+     'Try drops that end at a different level. Which ending level gives visible light?',
+     'To climb from n = 2, the electron must be sitting in n = 2 first. Get it there, then aim a photon at a gap above n = 2.'],
+    ['Line up the sign’s spectrum with each gas. A match needs every bright line in the same place.',
+     'The sign’s light is almost all orange and red, packed between about 585 and 705 nm.'],
+    ['E = hc ÷ λ, with λ in meters: 1 nm = 1 × 10<sup>−9</sup> m.',
+     'Your answer should be a few × 10<sup>−19</sup> J. Type only the number in front of × 10<sup>−19</sup>.'],
+  ];
+  const hintEl = document.getElementById('hint');
+  document.getElementById('hintBtn').addEventListener('click', () => {
+    const list = HINTS[Math.min(state.mission, 3)];
+    state.hintLevel = Math.min(state.hintLevel + 1, list.length);
+    hintEl.innerHTML = list.slice(0, state.hintLevel).map(t => '• ' + t).join('<br>');
+    hintEl.classList.remove('hidden');
+  });
+
+  // ---------- mission card ----------
+  const card = document.getElementById('missionCard'), controls = document.getElementById('controls');
+  const BALMER = [3, 4, 5, 6];
+  const SPECTRA = {
+    sign: [[540.1,.2],[585.2,1],[588.2,.5],[594.5,.6],[597.6,.3],[603.0,.4],[607.4,.6],[609.6,.6],[614.3,.8],[616.4,.4],[621.7,.5],[626.6,.6],[630.5,.4],[633.4,.8],[638.3,.7],[640.2,1],[650.7,.8],[659.9,.6],[667.8,.5],[671.7,.4],[692.9,.6],[703.2,.8],[724.5,.3]],
+    Hydrogen: [[410.2,.45],[434.0,.55],[486.1,.75],[656.3,1]],
+    Helium: [[388.9,.6],[447.1,.65],[471.3,.35],[492.2,.45],[501.6,.6],[587.6,1],[667.8,.6],[706.5,.7],[728.1,.3]],
+    Mercury: [[404.7,.7],[435.8,1],[546.1,1],[577.0,.6],[579.1,.6]],
+    Neon: null,
+    Argon: [[415.9,.5],[419.8,.4],[420.1,.5],[427.2,.35],[430.0,.35],[451.1,.3],[696.5,.9],[706.7,.8],[714.7,.4],[727.3,.5],[738.4,.8],[750.0,1]],
+  };
+  SPECTRA.Neon = SPECTRA.sign;
+  const WRONG = {
+    Hydrogen: 'Hydrogen has only four visible lines, and the brightest red one sits at 656 nm. The sign has more than twenty.',
+    Helium: 'Helium’s bright yellow line (588 nm) is close to one of the sign’s lines, but helium is missing almost all of the red ones.',
+    Mercury: 'Mercury’s brightest lines are blue and green. The sign has almost nothing below 585 nm.',
+    Argon: 'Argon has some deep red lines, but it is missing the dense orange-red cluster from 585 to 660 nm.',
+  };
+  function miniSpec(lines) {
+    return `<div class="mini">${lines.map(([nm, a]) => `<div class="ln" style="left:${pct(nm)}%;background:${lamColor(nm)};opacity:${a}"></div>`).join('')}</div>`;
+  }
+  const M4 = [{ nm: 585.2, letters: [9] }, { nm: 614.3, letters: [10] }, { nm: 703.2, letters: [11] }];
+
+  function drawMission() {
+    controls.classList.toggle('hidden', state.mission >= 2);
+    if (state.mission === 0) {
+      card.innerHTML = `<h2>Mission 1 of 4</h2><h3>Make the electron jump</h3>
+        <p>Fire a photon the electron <b>absorbs</b>, so it jumps up from n = 1.</p>
+        <p class="stats">Only an exact energy gap works: ΔE = E<sub>high</sub> − E<sub>low</sub>, then λ = hc ÷ ΔE.</p>`;
+    } else if (state.mission === 1) {
+      card.innerHTML = `<h2>Mission 2 of 4</h2><h3>Find hydrogen’s 4 visible colors</h3>
+        <p>Make the atom give off all four.</p>
+        <p>Found: <b>${state.collected.size} of 4</b> ${BALMER.filter(n => state.collected.has(n)).map(n => `<span class="chip" style="background:${lamColor(lamOf(En(n) - En(2)))};color:${lamOf(En(n) - En(2)) < 470 ? '#fff' : '#000'}">${Math.round(lamOf(En(n) - En(2)))} nm</span>`).join('')}</p>
+        <p class="stats">Light comes out when the electron falls. Which falls make visible light?</p>`;
+    } else if (state.mission === 2) {
+      card.innerHTML = `<h2>Mission 3 of 4</h2><h3>Name the gas in the sign</h3>
+        <p>Which gas’s lines match the sign’s?</p>
+        <div class="gas"><span class="nm"><b>The sign</b></span>${miniSpec(SPECTRA.sign)}</div>
+        ${['Hydrogen', 'Helium', 'Mercury', 'Neon', 'Argon'].map(g => `<div class="gas"><button data-gas="${g}">${g}</button>${miniSpec(SPECTRA[g])}</div>`).join('')}
+        <div class="scale"><span>380 nm</span><span>565</span><span>750 nm</span></div>
+        <div class="msg" id="m3msg" style="margin-top:8px">Click a gas.</div>
+        <div class="row" style="margin-top:8px; justify-content:flex-end"><button class="ghost" id="m3hint">Hint</button></div>
+        <div class="hint hidden" id="m3hintTxt"></div>`;
+      card.querySelectorAll('[data-gas]').forEach(b => b.addEventListener('click', () => pickGas(b.dataset.gas)));
+      card.querySelector('#m3hint').addEventListener('click', m34hint);
+    } else if (state.mission === 3) {
+      card.innerHTML = `<h2>Mission 4 of 4</h2><h3>Power the tubes</h3>
+        <p>Find the energy of <b>one photon</b> of each neon color. Each answer lights a letter.</p>
+        ${M4.map((q, i) => `<div class="lineq"><span class="sw" style="background:${lamColor(q.nm)}"></span>
+          <span style="flex:0 0 74px"><b>${q.nm} nm</b></span>
+          <input type="number" class="e-in" id="m4in${i}" step="0.01" ${state.m4[i] ? 'disabled' : ''} placeholder="?">
+          <span>× 10<sup>−19</sup> J</span>
+          ${state.m4[i] ? '<span class="ok">✓ lit</span>' : `<button data-i="${i}">Check</button>`}</div>`).join('')}
+        <div class="msg" id="m4msg" style="margin-top:8px">E = hc ÷ λ, with λ in meters.</div>
+        <div class="row" style="margin-top:8px; justify-content:flex-end"><button class="ghost" id="m4hint">Hint</button></div>
+        <div class="hint hidden" id="m4hintTxt"></div>`;
+      M4.forEach((q, i) => { if (state.m4[i]) document.getElementById('m4in' + i).value = (EOf(q.nm) / 1e-19).toFixed(2); });
+      card.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => checkM4(+b.dataset.i)));
+      card.querySelectorAll('.e-in').forEach((inp, i) => inp.addEventListener('keydown', e => { if (e.key === 'Enter') checkM4(i); }));
+      card.querySelector('#m4hint').addEventListener('click', m34hint);
+    } else {
+      card.innerHTML = `<h2>Sign relit</h2><h3>The sign glows again!</h3>
+        <p>Neon’s brightest lines are orange and red, so neon glows red.</p>
+        <div style="border:2px solid #ff5a4a;border-radius:8px;padding:8px 10px;margin:6px 0 10px;background:#1b2742">
+          <div style="font-size:12px;letter-spacing:.08em;color:#8FA3B5">COMPLETION RECORD</div>
+          <div style="font-size:17px"><b>Relit by ${esc(state.who) || '(no name entered)'}</b></div>
+          <div class="stats" style="color:#c9d4e6">${state.done} · photons fired: ${state.shots}</div>
+        </div>
+        <p class="stats"><b style="color:#ffcf5a">Tier 2:</b> screenshot this whole screen and hand in your flight log.</p>
+        <div class="row"><button id="again">Play again</button></div>`;
+      card.querySelector('#again').addEventListener('click', restart);
+    }
+  }
+  function m34hint() {
+    const list = HINTS[state.mission];
+    state.hintLevel = Math.min(state.hintLevel + 1, list.length);
+    const t = card.querySelector(state.mission === 2 ? '#m3hintTxt' : '#m4hintTxt');
+    t.innerHTML = list.slice(0, state.hintLevel).map(x => '• ' + x).join('<br>'); t.classList.remove('hidden');
+  }
+  function pickGas(g) {
+    const m = card.querySelector('#m3msg');
+    if (g === 'Neon') {
+      m.className = 'msg good'; m.innerHTML = '<b>Neon.</b> Every line lines up. That pattern is neon’s fingerprint.';
+      setTimeout(() => finishMission(2), 1300);
+    } else { m.className = 'msg warn'; m.innerHTML = `<b>Not ${g}.</b> ${WRONG[g]}`; }
+  }
+  function checkM4(i) {
+    const inp = document.getElementById('m4in' + i), m = card.querySelector('#m4msg');
+    let v = parseFloat(inp.value);
+    if (!(v > 0)) { m.className = 'msg warn'; m.textContent = 'Type a number first.'; return; }
+    if (v < 1e-10) v = v / 1e-19;               // they typed the full value in joules
+    const truth = EOf(M4[i].nm) / 1e-19;
+    if (Math.abs(v - truth) / truth <= 0.015) {
+      state.m4[i] = true; light(M4[i].letters);
+      if (state.m4.every(Boolean)) { setTimeout(() => finishMission(3), 900); }
+      drawMission();
+      const m2 = card.querySelector('#m4msg'); if (m2) { m2.className = 'msg good'; m2.innerHTML = `<b>Correct:</b> ${sci(EOf(M4[i].nm))} J per photon. The letter lights up.`; }
+    } else {
+      m.className = 'msg warn';
+      const r = Math.log10(v / truth), k = Math.round(r);
+      m.innerHTML = k !== 0 && Math.abs(r - k) < 0.02
+        ? 'Right digits, wrong power of ten. Did you convert nanometers to meters, and type only the number in front of × 10<sup>−19</sup>?'
+        : 'Not quite. Check E = hc ÷ λ with λ in meters.';
+    }
+  }
+  const LIGHTS = [[0, 1, 2], [3, 4, 5], [6, 7, 8]];
+  const esc = t => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  function finishMission(i) {
+    if (state.mission !== i) return;
+    if (i === 3) state.done = new Date().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    if (LIGHTS[i]) light(LIGHTS[i]);
+    state.mission = i + 1; state.hintLevel = 0; hintEl.classList.add('hidden');
+    drawProgress(); drawMission(); layout();
+    if (i === 0) say(msgEl.innerHTML + '<br><b>Mission 1 done:</b> three letters lit.', 'good');
+    if (i === 3) document.querySelectorAll('.letters span.lit').forEach(s => { s.classList.add('flick'); setTimeout(() => s.classList.remove('flick'), 950); });
+  }
+  function restart() {
+    Object.assign(state, { who: state.who, n: 1, ionized: false, busy: false, mission: 0, shots: 0, collected: new Set(), hintLevel: 0, m4: [false, false, false] });
+    letterSpans.forEach(s => s.classList.remove('lit')); clearStrip();
+    [0, 1, 2].forEach(i => letterSpans[i].classList.add('dying'));
+    ey = yOf(1); ex = EX; placeElectron(); drawLevels(); drawProgress(); drawMission(); stats();
+    say('Pick a wavelength, then fire.');
+  }
+
+  document.getElementById('start').addEventListener('click', () => {
+    state.who = document.getElementById('who').value.trim();
+    document.getElementById('intro').classList.add('hidden');
+    document.getElementById('mainArea').classList.remove('hidden');
+    document.getElementById('specArea').classList.remove('hidden');
+  });
+  document.getElementById('who').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('start').click(); });
+  // ---------- compact <-> full screen ----------
+  const root = document.documentElement;
+  const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  function layout() {
+    const fs = isFs();
+    document.body.classList.toggle('fs', fs);
+    document.body.classList.toggle('teaser', !fs && window.innerHeight < 430);
+    const started = document.getElementById('intro').classList.contains('hidden');
+    document.getElementById('playBtn').textContent = state.mission >= 4 ? '▶ See your lit sign' : started ? '▶ Resume full screen' : '▶ Play full screen';
+    document.getElementById('tline').innerHTML = state.mission >= 4 ? '<b>Sign relit.</b> Nice work.' : started ? `Mission ${state.mission + 1} of 4 in progress.` : 'The sign’s neon is failing. <b>Can you relight it?</b>';
+  }
+  const pageUrl = () => location.href.split('#')[0];
+  function openTab() { window.open(pageUrl(), '_blank', 'noopener'); }
+  function goFull() {
+    const req = root.requestFullscreen || root.webkitRequestFullscreen;
+    if (!req) { openTab(); return; }
+    try { const p = req.call(root); if (p && p.catch) p.catch(openTab); } catch (e) { openTab(); }
+  }
+  document.getElementById('playBtn').addEventListener('click', goFull);
+  document.getElementById('signBox').addEventListener('click', () => { if (document.body.classList.contains('teaser')) goFull(); });
+  document.getElementById('newTab').addEventListener('click', e => { e.preventDefault(); openTab(); });
+  document.getElementById('exitFs').addEventListener('click', () => { (document.exitFullscreen || document.webkitExitFullscreen).call(document); });
+  document.addEventListener('fullscreenchange', layout); document.addEventListener('webkitfullscreenchange', layout);
+  window.addEventListener('resize', layout);
+
+  window.__game = { state, fire, drop, pickGas, checkM4 };   // for testing
+  sync('input'); restart(); layout();
+})();
+</script>
+</body>
+</html>
