@@ -592,7 +592,7 @@
     }
   }
   // ---------- leaderboard (Google Sheet web app) ----------
-  const SCORE_URL = 'PASTE_WEB_APP_URL_HERE';
+  const SCORE_URL = 'https://script.google.com/macros/s/AKfycbxdZEGB2vXhb3mDuAtrXzUaPcy4czT4vT9aWwFZEpWwJIgUL3YcemLab1Xt3TIuBY3N/exec';
   const lbOn = () => /^https:\/\/script\.google(usercontent)?\.com\//.test(SCORE_URL);
   async function api(params) {
     const r = await fetch(SCORE_URL + '?' + new URLSearchParams(params));
